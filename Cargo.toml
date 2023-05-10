@@ -30,6 +30,7 @@ tracing-subscriber = { version = "0.3", features = [
     "ansi",
 ], default-features = false }
 regex = "1"
+axum-extra = "0.7"
 
 [profile.release]
 lto = true

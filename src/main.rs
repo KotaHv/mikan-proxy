@@ -2,12 +2,14 @@
 extern crate tracing;
 
 use axum::{routing::any, Router};
+use axum_extra::middleware::option_layer;
 use once_cell::sync::Lazy;
 use reqwest::{redirect::Policy, Client};
 use tokio::signal::{
     ctrl_c,
     unix::{signal, SignalKind},
 };
+use tower::ServiceBuilder;
 
 mod config;
 mod middleware;
@@ -24,13 +26,19 @@ async fn main() {
     launch_info();
     trace::init();
     info!("listening on http://{}", config::CONFIG.addr);
-    let mut app = Router::new()
+    let token_layer = match CONFIG.token {
+        Some(_) => Some(middleware::TokenLayer),
+        None => None,
+    };
+    let token_layer = option_layer(token_layer);
+    let layer = ServiceBuilder::new()
+        .layer(token_layer)
+        .layer(trace::TraceLayer);
+    let app = Router::new()
         .route("/", any(mikan::mikan_proxy))
         .route("/*path", any(mikan::mikan_proxy))
-        .layer(trace::TraceLayer);
-    if CONFIG.token.is_some() {
-        app = app.layer(middleware::TokenLayer);
-    }
+        .layer(layer);
+
     axum::Server::bind(&config::CONFIG.addr)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
