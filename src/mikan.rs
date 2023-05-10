@@ -13,13 +13,27 @@ use crate::{util::get_header, CLIENT, CONFIG};
 static MIKAN_URL: &'static str = "https://mikanani.me/";
 static MIKAN_RSS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"https?:\/\/mikanani\.me").unwrap());
 
+pub struct ReqwestError(reqwest::Error);
+
+impl From<reqwest::Error> for ReqwestError {
+    fn from(value: reqwest::Error) -> Self {
+        Self(value)
+    }
+}
+
+impl IntoResponse for ReqwestError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.0.to_string()).into_response()
+    }
+}
+
 pub async fn mikan_proxy(
     path: Option<Path<String>>,
     RawQuery(query): RawQuery,
     method: Method,
     headers: HeaderMap,
     body: Bytes,
-) -> Result<Response, (StatusCode, String)> {
+) -> Result<Response, ReqwestError> {
     let mut mikan = MIKAN_URL.to_string();
     if let Some(Path(path)) = path {
         mikan += &path;
@@ -33,35 +47,19 @@ pub async fn mikan_proxy(
         .headers(headers)
         .body(body)
         .send()
-        .await;
-    match res {
-        Ok(res) => {
-            let status = res.status();
-            let headers = res.headers().clone();
-            let ct = get_header(&headers, CONTENT_TYPE).unwrap_or_default();
-            if ct.contains("application/xml") {
-                match res.text().await {
-                    Ok(body) => {
-                        let body = MIKAN_RSS_REGEX.replace_all(&body, &CONFIG.url).to_string();
-                        let mut res = body.into_response();
-                        *res.status_mut() = status;
-                        *res.headers_mut() = headers;
-                        Ok(res)
-                    }
-                    Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-                }
-            } else {
-                match res.bytes().await {
-                    Ok(body) => {
-                        let mut res = body.into_response();
-                        *res.status_mut() = status;
-                        *res.headers_mut() = headers;
-                        Ok(res)
-                    }
-                    Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-                }
-            }
-        }
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    }
+        .await?;
+    let status = res.status();
+    let headers = res.headers().clone();
+    let ct = get_header(&headers, CONTENT_TYPE).unwrap_or_default();
+    let mut res = if ct.contains("application/xml") {
+        let body = res.text().await?;
+        let body = MIKAN_RSS_REGEX.replace_all(&body, &CONFIG.url).to_string();
+        body.into_response()
+    } else {
+        let body = res.bytes().await?;
+        body.into_response()
+    };
+    *res.status_mut() = status;
+    *res.headers_mut() = headers;
+    Ok(res)
 }
