@@ -10,6 +10,7 @@ use tokio::signal::{
     unix::{signal, SignalKind},
 };
 use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 
 mod config;
 mod middleware;
@@ -32,6 +33,7 @@ async fn main() {
     };
     let token_layer = option_layer(token_layer);
     let layer = ServiceBuilder::new()
+        .layer(CompressionLayer::new())
         .layer(token_layer)
         .layer(trace::TraceLayer);
     let app = Router::new()
