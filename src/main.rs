@@ -33,9 +33,10 @@ async fn main() {
     };
     let token_layer = option_layer(token_layer);
     let layer = ServiceBuilder::new()
+        .layer(trace::TraceLayer)
         .layer(CompressionLayer::new())
-        .layer(token_layer)
-        .layer(trace::TraceLayer);
+        .layer(token_layer);
+
     let app = Router::new()
         .route("/", any(mikan::mikan_proxy))
         .route("/*path", any(mikan::mikan_proxy))
