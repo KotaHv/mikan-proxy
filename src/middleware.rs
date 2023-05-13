@@ -5,10 +5,7 @@ use std::{
 };
 
 use super::CONFIG;
-use axum::{
-    http::{Request, StatusCode},
-    response::{IntoResponse, Response},
-};
+use axum::http::{Request, Response, StatusCode};
 use futures_util::ready;
 use pin_project::pin_project;
 use serde::Deserialize;
@@ -35,9 +32,10 @@ struct Query {
     token: String,
 }
 
-impl<S, ReqBody> Service<Request<ReqBody>> for TokenMiddleware<S>
+impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for TokenMiddleware<S>
 where
-    S: Service<Request<ReqBody>, Response = Response>,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
+    ResBody: Default,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -56,32 +54,34 @@ where
                 }
             }
         }
-        let response_future = self.inner.call(request);
-        TokenFuture {
-            response_future,
-            is_ok,
-        }
+
+        let fut = self.inner.call(request);
+        TokenFuture { fut, is_ok }
     }
 }
 
 #[pin_project]
 pub struct TokenFuture<F> {
     #[pin]
-    response_future: F,
+    fut: F,
     is_ok: bool,
 }
 
-impl<F, E> Future for TokenFuture<F>
+impl<F, B, E> Future for TokenFuture<F>
 where
-    F: Future<Output = Result<Response, E>>,
+    F: Future<Output = Result<Response<B>, E>>,
+    B: Default,
 {
-    type Output = F::Output;
+    type Output = Result<Response<B>, E>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         if !this.is_ok.to_owned() {
-            return Poll::Ready(Ok(StatusCode::NOT_FOUND.into_response()));
+            let mut res = Response::default();
+            *res.status_mut() = StatusCode::NOT_FOUND;
+            return Poll::Ready(Ok(res));
         }
-        let res = ready!(this.response_future.poll(cx)?);
+        let res = ready!(this.fut.poll(cx)?);
+
         Poll::Ready(Ok(res))
     }
 }
