@@ -1,30 +1,71 @@
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use std::net::SocketAddr;
-
-use figment::providers::Serialized;
 use figment::{providers::Env, Figment};
+use is_terminal::IsTerminal;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer};
 
 const PREFIX: &'static str = "MIKAN_";
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| init_config());
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Debug)]
+pub enum LogStyle {
+    Auto,
+    Always,
+    Never,
+}
+
+impl Default for LogStyle {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+impl LogStyle {
+    pub fn is_color(&self) -> bool {
+        match self {
+            LogStyle::Auto => std::io::stdout().is_terminal(),
+            LogStyle::Always => true,
+            LogStyle::Never => false,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for LogStyle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?.to_lowercase();
+        match s.as_str() {
+            "auto" => Ok(LogStyle::Auto),
+            "always" => Ok(LogStyle::Always),
+            "never" => Ok(LogStyle::Never),
+            _ => Err(serde::de::Error::unknown_field(
+                &s,
+                &["auto", "always", "never"],
+            )),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default)]
 pub struct Log {
-    #[serde(default = "Log::level")]
     pub level: String,
+    pub style: LogStyle,
 }
 
 impl Default for Log {
     fn default() -> Self {
         Log {
             level: Self::level(),
+            style: LogStyle::default(),
         }
     }
 }
@@ -35,7 +76,8 @@ impl Log {
     }
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug)]
+#[serde(default)]
 pub struct Config {
     #[serde(deserialize_with = "token_deserialize")]
     pub token: Option<String>,
@@ -137,8 +179,7 @@ where
 }
 
 pub fn init_config() -> Config {
-    let config = Figment::from(Serialized::defaults(Config::default()))
-        .merge(Env::prefixed(PREFIX))
+    let config = Figment::from(Env::prefixed(PREFIX))
         .merge(Env::prefixed(PREFIX).split("_"))
         .extract::<Config>();
     match config {

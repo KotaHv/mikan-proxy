@@ -21,7 +21,11 @@ use crate::util;
 use crate::CONFIG;
 
 pub fn init() {
-    let format = fmt::layer().with_timer(LocalTime);
+    let is_color = CONFIG.log.style.is_color();
+    if !is_color {
+        Paint::disable();
+    }
+    let format = fmt::layer().with_timer(LocalTime).with_ansi(is_color);
 
     let level = CONFIG.log.level.as_str();
     let filter: Targets = match level.parse() {
