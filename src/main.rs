@@ -10,7 +10,7 @@ use tokio::signal::{
     unix::{signal, SignalKind},
 };
 use tower::ServiceBuilder;
-use tower_http::compression::CompressionLayer;
+use tower_http::{compression::CompressionLayer, validate_request::ValidateRequestHeaderLayer};
 
 mod config;
 mod middleware;
@@ -27,8 +27,10 @@ async fn main() {
     launch_info();
     trace::init();
     info!("listening on http://{}", config::CONFIG.addr);
-    let token_layer = match CONFIG.token {
-        Some(_) => Some(middleware::TokenLayer),
+    let token_layer = match CONFIG.token.clone() {
+        Some(t) => Some(ValidateRequestHeaderLayer::custom(middleware::Token::new(
+            t,
+        ))),
         None => None,
     };
     let token_layer = option_layer(token_layer);

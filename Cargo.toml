@@ -22,7 +22,10 @@ yansi = "0.5"
 async-trait = "0.1"
 futures-util = "0.3"
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.4", features = ["compression-br"] }
+tower-http = { version = "0.4", features = [
+    "compression-br",
+    "validate-request",
+] }
 serde_urlencoded = "0.7"
 pin-project = "1"
 tracing = "0.1"
