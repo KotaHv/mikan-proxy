@@ -43,12 +43,19 @@ async fn main() {
         .route("/", any(mikan::mikan_proxy))
         .route("/*path", any(mikan::mikan_proxy))
         .layer(layer);
-
-    axum::Server::bind(&config::CONFIG.addr)
-        .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .unwrap();
+    if CONFIG.debug {
+        tokio::select! {
+            _ = axum::Server::bind(&config::CONFIG.addr)
+            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>()) => {},
+            _ = shutdown_signal() => {}
+        }
+    } else {
+        axum::Server::bind(&config::CONFIG.addr)
+            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .unwrap();
+    }
 }
 
 fn launch_info() {

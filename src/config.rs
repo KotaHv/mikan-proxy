@@ -84,6 +84,7 @@ pub struct Config {
     pub log: Log,
     pub addr: SocketAddr,
     pub url: String,
+    pub debug: bool,
 }
 
 impl Default for Config {
@@ -93,6 +94,7 @@ impl Default for Config {
             log: Log::default(),
             addr: Self::addr(),
             url: Self::url(),
+            debug: true,
         }
     }
 }
