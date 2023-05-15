@@ -25,6 +25,7 @@ pub static CLIENT: Lazy<Client> = Lazy::new(|| init_client());
 #[tokio::main]
 async fn main() {
     launch_info();
+    dotenvy::dotenv().ok();
     trace::init();
     info!("listening on http://{}", config::CONFIG.addr);
     let token_layer = match CONFIG.token.clone() {
@@ -43,19 +44,20 @@ async fn main() {
         .route("/", any(mikan::mikan_proxy))
         .route("/*path", any(mikan::mikan_proxy))
         .layer(layer);
+    let server = axum::Server::bind(&config::CONFIG.addr)
+        .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>());
     if CONFIG.debug {
         tokio::select! {
-            _ = axum::Server::bind(&config::CONFIG.addr)
-            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>()) => {},
+            _ = server => {},
             _ = shutdown_signal() => {}
         }
     } else {
-        axum::Server::bind(&config::CONFIG.addr)
-            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+        server
             .with_graceful_shutdown(shutdown_signal())
             .await
             .unwrap();
     }
+    warn!("server is shut down");
 }
 
 fn launch_info() {
