@@ -22,7 +22,7 @@ pub use config::CONFIG;
 
 pub static CLIENT: Lazy<Client> = Lazy::new(|| init_client());
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     launch_info();
     dotenvy::dotenv().ok();
