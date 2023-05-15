@@ -45,7 +45,7 @@ async fn main() {
         .layer(layer);
 
     axum::Server::bind(&config::CONFIG.addr)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
