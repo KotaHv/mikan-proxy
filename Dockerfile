@@ -7,7 +7,7 @@ RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release
 
 FROM alpine:latest
 
-ENV MIKAN_ADDR=0.0.0.0:80
+ENV MIKAN_ADDR=0.0.0.0:80 MIKAN_DEBUG=false
 
 EXPOSE 80
 
