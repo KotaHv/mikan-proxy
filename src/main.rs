@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate tracing;
 
+use std::time::Duration;
+
 use axum::{routing::any, Router};
 use axum_extra::middleware::option_layer;
 use once_cell::sync::Lazy;
@@ -70,7 +72,11 @@ fn launch_info() {
 }
 
 fn init_client() -> Client {
-    Client::builder().redirect(Policy::none()).build().unwrap()
+    Client::builder()
+        .redirect(Policy::none())
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap()
 }
 
 async fn shutdown_signal() {
