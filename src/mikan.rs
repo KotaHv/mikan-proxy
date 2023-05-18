@@ -6,7 +6,10 @@ use axum::{
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{
+    header::{ACCEPT_ENCODING, CONTENT_TYPE},
+    StatusCode,
+};
 
 use crate::{util::get_header, CLIENT, CONFIG};
 
@@ -42,6 +45,12 @@ pub async fn mikan_proxy(
         mikan += "?";
         mikan += &query;
     }
+    let mut headers = headers;
+    let rm_headers = ["x-forwarded-host", "cf-connecting-ip", "cf-ipcountry"];
+    rm_headers.into_iter().for_each(|key| {
+        headers.remove(key);
+    });
+    headers.insert(ACCEPT_ENCODING, "br".parse().unwrap());
     let res = CLIENT
         .request(method, mikan)
         .headers(headers)
