@@ -5,6 +5,9 @@ use axum::{
 
 pub fn get_ip<B>(req: &Request<B>) -> String {
     let headers = req.headers();
+    if let Some(ip) = get_header(headers, "cf-connecting-ip") {
+        return ip;
+    }
     if let Some(ip) = get_header(headers, "X-Forwarded-For") {
         if let Some(ip) = ip.split_once(",") {
             return ip.0.to_string();
