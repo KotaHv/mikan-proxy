@@ -1,0 +1,21 @@
+FROM alpine:latest as builder
+
+ARG DOWNLOAD_BASE
+RUN ARCH=$(uname -m | sed -e "s/armv7l/armv7-unknown-linux-musleabihf/g" | sed -e "s/aarch64/aarch64-unknown-linux-musl/g" | sed -e "s/x86_64/x86_64-unknown-linux-musl/g") && \
+    apk add --no-cache curl && \
+    curl -L "${DOWNLOAD_BASE}/mikan-proxy-${ARCH}" -o /mikan-proxy && \
+    chmod +x /mikan-proxy
+
+FROM alpine:latest
+
+ENV MIKAN_ADDR=0.0.0.0:80 MIKAN_DEBUG=false
+
+EXPOSE 80
+
+WORKDIR /
+
+COPY --from=builder /mikan-proxy .
+
+COPY docker/start.sh /start.sh
+
+CMD [ "/start.sh" ]
