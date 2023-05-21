@@ -83,8 +83,9 @@ pub struct Config {
     pub token: Option<String>,
     pub log: Log,
     pub addr: SocketAddr,
-    pub url: String,
+    pub url: Option<String>,
     pub debug: bool,
+    pub https: bool,
 }
 
 impl Default for Config {
@@ -95,6 +96,7 @@ impl Default for Config {
             addr: Self::addr(),
             url: Self::url(),
             debug: true,
+            https: true,
         }
     }
 }
@@ -103,8 +105,8 @@ impl Config {
     fn addr() -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3030)
     }
-    fn url() -> String {
-        "".to_string()
+    fn url() -> Option<String> {
+        None
     }
 }
 
@@ -185,13 +187,12 @@ pub fn init_config() -> Config {
         .merge(Env::prefixed(PREFIX).split("_"))
         .extract::<Config>();
     match config {
-        Ok(mut config) => {
-            if config.url.is_empty() {
-                config.url = format!("http://{}", config.addr);
+        Ok(config) => {
+            if let Some(url) = &config.url {
+                if let Err(e) = Url::parse(url) {
+                    panic!("Failed to parse an absolute URL, Reason: {}", e.to_string());
+                };
             }
-            if let Err(e) = Url::parse(&config.url) {
-                panic!("Failed to parse an absolute URL, Reason: {}", e.to_string());
-            };
             println!("{:#?}", config);
             config
         }

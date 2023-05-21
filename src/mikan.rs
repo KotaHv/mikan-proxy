@@ -1,6 +1,6 @@
 use axum::{
     body::Bytes,
-    extract::{Path, RawQuery},
+    extract::{Host, Path, RawQuery},
     http::{HeaderMap, Method},
     response::{IntoResponse, Response},
 };
@@ -34,6 +34,7 @@ pub async fn mikan_proxy(
     path: Option<Path<String>>,
     RawQuery(query): RawQuery,
     method: Method,
+    Host(host): Host,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, ReqwestError> {
@@ -61,8 +62,20 @@ pub async fn mikan_proxy(
     let headers = res.headers().clone();
     let ct = get_header(&headers, CONTENT_TYPE).unwrap_or_default();
     let mut res = if ct.contains("application/xml") {
+        let mut url = String::new();
+        match &CONFIG.url {
+            Some(s) => url += s,
+            None => {
+                match CONFIG.https {
+                    true => url += "https",
+                    false => url += "http",
+                };
+                url += "://";
+                url += &host;
+            }
+        };
         let body = res.text().await?;
-        let body = MIKAN_RSS_REGEX.replace_all(&body, &CONFIG.url).to_string();
+        let body = MIKAN_RSS_REGEX.replace_all(&body, url).to_string();
         body.into_response()
     } else {
         let body = res.bytes().await?;
